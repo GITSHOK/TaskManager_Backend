@@ -4,17 +4,21 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
-
-const PORT = process.env.PORT_NO;
+const PORT = process.env.PORT || 3001;
 const mongo = process.env.MONGO_URI;
+const SECRET = process.env.JWT_SECRET || "mysecretkey";
+
 const UserSchema = require("./models/User.js");
 const TaskSchema = require("./models/Task.js");
 
 const app = express();
 app.use(express.json());
-app.use(cors());
 
-const SECRET = "mysecretkey";
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
 
 // 🔌 DB CONNECT
@@ -84,7 +88,7 @@ app.post('/login', async (req, res) => {
 app.post('/add-task', verifyUser, async (req, res) => {
   try {
     const task = await TaskSchema.create({
-      userId: req.userId,   // ✅ KEEP AS STRING (Mongoose handles it)
+      userId: req.userId,
       taskName: req.body.taskName,
       group: req.body.group,
       completed: false
@@ -160,7 +164,6 @@ app.get("/taskstats", verifyUser, async (req, res) => {
   try {
     const userId = req.userId;
 
-    // Basic counts
     const total = await TaskSchema.countDocuments({ userId });
 
     const completed = await TaskSchema.countDocuments({
@@ -173,9 +176,6 @@ app.get("/taskstats", verifyUser, async (req, res) => {
       completed: false
     });
 
-    // =========================
-    // 📈 TASKS PER DAY
-    // =========================
     const tasksPerDayRaw = await TaskSchema.aggregate([
       { $match: { userId: new mongoose.Types.ObjectId(userId) } },
       {
@@ -202,9 +202,6 @@ app.get("/taskstats", verifyUser, async (req, res) => {
       completed: item.completed
     }));
 
-    // =========================
-    // 📊 GROUP-WISE STATS
-    // =========================
     const groupStatsRaw = await TaskSchema.aggregate([
       { $match: { userId: new mongoose.Types.ObjectId(userId) } },
       {
@@ -230,9 +227,6 @@ app.get("/taskstats", verifyUser, async (req, res) => {
       pending: item.pending
     }));
 
-    // =========================
-    // 📤 FINAL RESPONSE
-    // =========================
     res.json({
       total,
       completed,
@@ -252,5 +246,5 @@ app.get("/taskstats", verifyUser, async (req, res) => {
 // 🚀 START SERVER
 // =======================
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port 3001");
+  console.log(`🚀 Server running on port ${PORT}`);
 });
